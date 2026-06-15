@@ -5,32 +5,34 @@ from math import ceil
 from struct import pack, unpack
 from modbus.client import client
 
-def registers_to_float(reg1: int, reg2: int, swap_words: bool = False) -> float:
+def registers_to_float(reg1: int, reg2: int, swap_words: bool = True) -> float:
     """
-    将两个16位Modbus寄存器转换为一个32位浮点数 (IEEE 754)。
+    将两个16位Modbus寄存器转换为一个32位有符号整数，并缩放1000倍还原为浮点数。
     
     参数:
         reg1 (int): 第一个16位寄存器值。
         reg2 (int): 第二个16位寄存器值。
-        swap_words (bool): 如果为 True，则交换寄存器的顺序 (reg2, reg1)。
-                           默认位 False (高位在前/大端字序)。
+        swap_words (bool): 如果为 True，则交换寄存器的顺序 (reg2, reg1)，即低位字在前。
+                           默认位 True。
     """
     if swap_words:
         data = struct.pack('>HH', reg2, reg1)
     else:
         data = struct.pack('>HH', reg1, reg2)
-    return struct.unpack('>f', data)[0]
+    val_int = struct.unpack('>i', data)[0]
+    return val_int / 1000.0
 
-def float_to_registers(val: float, swap_words: bool = False) -> tuple[int, int]:
+def float_to_registers(val: float, swap_words: bool = True) -> tuple[int, int]:
     """
-    将一个32位浮点数转换为两个16位Modbus寄存器值。
+    将浮点数乘以1000转换为32位有符号整数，再拆分为两个16位Modbus寄存器值。
     
     参数:
         val (float): 需要转换的浮点数值。
-        swap_words (bool): 如果为 True，则交换生成的寄存器顺序。
-                           默认为 False。
+        swap_words (bool): 如果为 True，则交换生成的寄存器顺序，即低位字在前。
+                           默认为 True。
     """
-    data = struct.pack('>f', val)
+    val_int = int(round(val * 1000.0))
+    data = struct.pack('>i', val_int)
     reg1, reg2 = struct.unpack('>HH', data)
     if swap_words:
         return reg2, reg1
